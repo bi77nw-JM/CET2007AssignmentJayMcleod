@@ -238,7 +238,7 @@ namespace ConsoleApp1
             HoursPlayed += iAddHours;
             if(DeathCount > 0)
             {
-                MainScore = (int)((double)KillCount / DeathCount) * 100;
+                MainScore = (int)(((double)KillCount / DeathCount) * 100);
             }
             else
             {
