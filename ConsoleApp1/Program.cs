@@ -17,6 +17,7 @@ namespace ConsoleApp1
     {
         static void Main(string[] args)
         {
+            //Checking the json file is there then starting the program.
             string filePath = "players.json";
             if (!File.Exists(filePath) || new FileInfo(filePath).Length == 0)
             {
@@ -26,14 +27,39 @@ namespace ConsoleApp1
             UI.DisplayMainMenu();
         }
     }
-    interface IUpdate
+    /// <summary>
+    /// IUpdate is used as an observer interface to write logs.
+    /// </summary>
+    public interface IUpdate
     {
         void Update(string message);
     }
     /// <summary>
+    /// Logs observer messages to the log file.
+    /// </summary>
+    public class FileLogger : IUpdate
+    {
+        private readonly string filePath;
+        public FileLogger(string filePath) => this.filePath = filePath;
+
+        public void Update(string message)
+        {
+            File.AppendAllText(filePath, message + Environment.NewLine);
+        }
+    }
+    /// <summary>
+    /// Used to check how the user wishes to sort the database.
+    /// </summary>
+    public enum SortBy
+    {
+        ID,
+        HighScore,
+        HoursPlayed
+    }
+    /// <summary>
     /// Player Class for creating Player objects that are added to the database.
     /// </summary>
-    class Player
+    public class Player
     {
         public string Username { get; set; }
         public int ID { get; set; }
@@ -71,106 +97,120 @@ namespace ConsoleApp1
         }
     }
     /// <summary>
-    /// Class that handles the json file by using Lists.
+    /// Using Template Method pattern to define the base class for adding to the json file
     /// </summary>
-    abstract class DatabaseHandling: IUpdate
+    public abstract class DatabaseHandling
     {
-        //private List<Player> playerList1 = new List<Player>();
+        protected SortBy sortBy = SortBy.ID;
+        private readonly List<IUpdate> observers = new List<IUpdate>();
+        public void AddObserver(IUpdate observer) => observers.Add(observer);
         /// <summary>
-        /// Takes the string input of a list and writes it to the json file.
+        /// give message to observers to add to log file
         /// </summary>
-        /// <param name="json"></param>
-        public void AddToDatabase(string json)
+        /// <param name="message"></param>
+        protected void NotifyObservers(string message)
         {
-            File.WriteAllText("players.json", json);
+            foreach (var observer in observers) observer.Update(message);
         }
         /// <summary>
-        /// Returns a list of all players stored in the json file as objects.
+        /// Defines route of execution
+        /// </summary>
+        public void Execute()
+        {
+            var players = RetrieveFromDatabase();
+            Modify(players);
+            Sort(players);
+            SaveToDatabase(players);
+            LogUpdate();
+        }
+        /// <summary>
+        /// Allows for the list to be changed when method overridden
+        /// </summary>
+        /// <param name="players"></param>
+        /// <returns></returns>
+        protected abstract bool Modify(List<Player> players);
+        /// <summary>
+        /// Allows user to set the type by which they want to sort the list by
+        /// </summary>
+        /// <param name="type"></param>
+        public void SetSortType(SortBy type) => sortBy = type;
+        /// <summary>
+        /// resorts the list by sortby type.
+        /// </summary>
+        /// <param name="players"></param>
+
+        protected virtual void Sort(List<Player> players)
+        {
+            switch (sortBy)
+            {
+                case SortBy.HighScore:
+                    players.Sort((a, b) => b.MainScore.CompareTo(a.MainScore));
+                    break;
+                case SortBy.HoursPlayed:
+                    players.Sort((a, b) => b.HoursPlayed.CompareTo(a.HoursPlayed));
+                    break;
+                case SortBy.ID:
+                default:
+                    players.Sort((a, b) => a.ID.CompareTo(b.ID));
+                    break;
+            }
+
+        }
+        /// <summary>
+        /// Adds the list back to the json file
+        /// </summary>
+        /// <param name="players"></param>
+        protected void SaveToDatabase(List<Player> players)
+        {
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            File.WriteAllText("players.json", JsonSerializer.Serialize(players, options));
+        }
+        /// <summary>
+        /// Allows the user to be shown their actions and add actions to the log.
+        /// </summary>
+        protected abstract void LogUpdate();
+        /// <summary>
+        /// Returns a list of players from the json file.
         /// </summary>
         /// <returns></returns>
-        public List<Player> RetrieveFromDatabase()
+        protected List<Player> RetrieveFromDatabase()
         {
-            string jsonData = File.ReadAllText("players.json");
-            List<Player> playerList2 = JsonSerializer.Deserialize<List<Player>>(jsonData);
-            return playerList2;
-        }
-        /// <summary>
-        /// makes sure the file is ordered by player ID.
-        /// </summary>
-        public void SortDatabase(string SortBy)
-        {
-            SortBy = SortBy.ToLower();
-            //If I didn't have automatic sorting algorithms that were faster,
-            //I would use my slower bubble sort algorithm as shown in comments.
-            //bool sorted = false;
-            //Player temp1 = null;
-            List<Player> playerListSort = RetrieveFromDatabase();
-            //while (!sorted)
-            //{
-            //    sorted = true;
-            //    for (int i = 0; i < playerListSort.Count -1; i++)
-            //    {
-            //        if (playerListSort[i].ID > playerListSort[i + 1].ID)
-            //       {
-            //            temp1 = playerListSort[i];
-            //            playerListSort[i] = playerListSort[i+1];
-            //            playerListSort[i + 1] = temp1;
-            //        }
-            //        else
-            //        {
-            //            sorted = false;
-            //        }
-            //    }
-            //}
-            if (SortBy == "id")
-            { playerListSort.Sort((p1, p2) => p1.ID.CompareTo(p2.ID)); }
-            else if(SortBy == "high score")
-            { playerListSort.Sort((p1, p2) => p2.MainScore.CompareTo(p1.MainScore)); }
-            else if(SortBy == "hours played")
-            { playerListSort.Sort((p1, p2) => p2.HoursPlayed.CompareTo(p1.HoursPlayed)); }
-            else
-            {
-                Console.WriteLine("Sorting type is invalid. Please re-enter the type you wish to sort by.");
-                SortBy = Console.ReadLine();
-                SortDatabase(SortBy);
-            }
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            string json = JsonSerializer.Serialize(playerListSort, options);
-            AddToDatabase(json);
-            Update($"Database resorted at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-        }
-        /// <summary>
-        /// Tells the user when the database has been updated.
-        /// </summary>
-        public void Update(string message)
-        {
-
-            File.AppendAllText("update_log.txt", message + Environment.NewLine);
-
-            Console.WriteLine("Database updated.");
+            return JsonSerializer.Deserialize<List<Player>>(File.ReadAllText("players.json"));
         }
     }
     /// <summary>
     /// Player search class inherriting Database Handling. 
-    /// It has many constructors to allow for many ways to search.
+    /// It has one constructor that allows for an input of either username, id or both.
     /// </summary>
-    class PlayerSearch : DatabaseHandling
+    public class PlayerSearch : DatabaseHandling
     {
-        private string Username { get; set; }
-        private int ID { get; set; }
+        private string Username;
+        private int ID;
 
-        public PlayerSearch(string sUsername, int iID) 
+        public PlayerSearch(string sUsername = null, int iID = 0)
         {
-            Username = sUsername;
-            ID = iID;
+            this.Username = sUsername;
+            this.ID = iID;
         }
-        public PlayerSearch(string sUsername)
+        /// <summary>
+        /// No modifications made during playersearch.
+        /// </summary>
+        /// <param name="players"></param>
+        /// <returns></returns>
+        protected override bool Modify(List<Player> players) => true;
+        /// <summary>
+        /// updating the log and notifying user.
+        /// </summary>
+        protected override void LogUpdate()
         {
-            Username = sUsername;
+            string msg = $"Searched for: {Username} at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            Console.WriteLine(msg);
+            NotifyObservers(msg);
         }
-        public PlayerSearch(int iID)
+        public bool Matches(Player p)
         {
-            ID = iID;
+            return (Username != null && Username == p.Username)
+                || (ID != 0 && ID == p.ID);
         }
         /// <summary>
         /// SearchForPlayer retrieves all players in the database and compares the username and or ID to the database.
@@ -182,9 +222,7 @@ namespace ConsoleApp1
             List<Player> playerList2 = RetrieveFromDatabase();
             foreach (Player p in playerList2)
             {
-                bool usernameMatch = Username != null && Username == p.Username;
-                bool idMatch = ID != 0 && ID == p.ID;
-                if (usernameMatch || idMatch)
+                if (Matches(p))
                 {
                     Console.WriteLine("Player found:");
                     Console.WriteLine(p.ToString());
@@ -198,265 +236,308 @@ namespace ConsoleApp1
     /// <summary>
     /// UpdateDatabase allows the user to update the scores of players that are in the database.
     /// </summary>
-    class UpdateDatabase : DatabaseHandling
+    public class UpdateDatabase : DatabaseHandling
     {
-        string Username;
-        int KillCount;
-        int DeathCount;
-        int MainScore;
-        int HoursPlayed;
-        Player UpdatePlayer = null;
+        private readonly string Username;
+        private readonly int KillCount;
+        private readonly int DeathCount;
+        private readonly int MainScore;
+        private readonly int HoursPlayed;
         /// <summary>
-        /// Finds the player the user wishes to update then sets the values temporarily.
+        /// sets adding values.
         /// </summary>
-        public UpdateDatabase()
+        public UpdateDatabase(string sUsername, int iAddKills, int iAddDeaths, int iAddHours)
         {
-            Console.WriteLine("Enter Username of the player who's statistics you wish to update.");
-            Username = Console.ReadLine();
-            PlayerSearch playerSearch = new PlayerSearch(Username);
-            UpdatePlayer = playerSearch.SearchForPlayer();
-            if(UpdatePlayer == null)
-            {
-                Console.WriteLine("Update Cancelled");
-                return;
-            }
-            KillCount = UpdatePlayer.KillCount;
-            DeathCount = UpdatePlayer.DeathCount;
-            MainScore = UpdatePlayer.MainScore;
-            HoursPlayed = UpdatePlayer.HoursPlayed;
+            this.Username = sUsername;
+            this.KillCount = iAddKills;
+            this.DeathCount = iAddDeaths;
+            this.HoursPlayed = iAddHours;
+            
+        }
+        public static int CalculateMainScore(int kills, int deaths)
+        {
+            return deaths > 0
+                ? (int)((double)kills / deaths * 100)
+                : kills * 100;
         }
         /// <summary>
-        /// The user inputs the added increase to the scores and the database is updated.
+        /// Edits the player found's scores.
         /// </summary>
-        /// <param name="iAddKillCount"></param>
-        /// <param name="iAddDeathCount"></param>
-        /// <param name="iAddHours"></param>
-        public void CalculateUpdate(int iAddKillCount, int iAddDeathCount, int iAddHours)
+        /// <param name="players"></param>
+        /// <returns></returns>
+        protected override bool Modify(List<Player> players)
         {
-            KillCount += iAddKillCount;
-            DeathCount += iAddDeathCount;
-            HoursPlayed += iAddHours;
-            if(DeathCount > 0)
+            Player player = players.FirstOrDefault(p => p.Username == Username);
+            if (player == null)
             {
-                MainScore = (int)(((double)KillCount / DeathCount) * 100);
+                Console.WriteLine("Player not found.");
+                return false;
             }
-            else
-            {
-                MainScore = (KillCount) * 100;
-            }
+            player.KillCount += KillCount;
+            player.DeathCount += DeathCount;
+            player.HoursPlayed += HoursPlayed;
+            player.MainScore = CalculateMainScore(player.KillCount, player.DeathCount);
 
-
-            UpdatePlayer.KillCount = KillCount;
-            UpdatePlayer.DeathCount = DeathCount;
-            UpdatePlayer.MainScore = MainScore;
-            UpdatePlayer.HoursPlayed = HoursPlayed;
-            List<Player> CurrentList = RetrieveFromDatabase();
-            for (int i = 0; i < CurrentList.Count; i++)
-            {
-                if (Username.Equals(CurrentList[i].Username))
-                {
-                    CurrentList[i] = UpdatePlayer;
-                }
-            }
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            string json = JsonSerializer.Serialize(CurrentList, options);
-            AddToDatabase(json);
-            SortDatabase("ID");
-            Update($"{Username} player record updated at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            return true;
+        }
+        protected override void LogUpdate()
+        {
+            string msg = $"{Username} player record updated at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            Console.WriteLine(msg);
+            NotifyObservers(msg);
         }
     }
     /// <summary>
     /// Shows the top 3 players by main score or hours played.
     /// </summary>
-    class DisplayRecords : DatabaseHandling
+    public class DisplayRecords : DatabaseHandling
     {
-        public void DisplayHighScores()
+        protected override bool Modify(List<Player> players) => true;
+        /// <inheritdoc/>
+        protected override void LogUpdate()
         {
-            Console.WriteLine("Enter the data type by which you would like to see the records.");
-            string SortBy = Console.ReadLine();
-            SortDatabase(SortBy);
-            List<Player> TopScorers = RetrieveFromDatabase();
-            for(int i = 1; i < Math.Min(TopScorers.Count, 3); i++)
+            string msg = $"Displayed record sorted by {sortBy}";
+            Console.WriteLine(msg);
+            NotifyObservers(msg);
+        }
+        /// <summary>
+        /// Allows the user to chose what type they wish to sort by
+        /// </summary>
+        public void ChooseSortType()
+        {
+            Console.WriteLine("Sort by 1: ID, 2: HighScore, 3: HoursPlayed?");
+            string input = Console.ReadLine();
+            switch (input)
             {
-                Console.WriteLine($"{i}: {TopScorers[i].ToString()}");
+                case "1": SetSortType(SortBy.ID); break;
+                case "2": SetSortType(SortBy.HighScore); break;
+                case "3": SetSortType(SortBy.HoursPlayed); break;
+                default:
+                    Console.WriteLine("Invalid input, defaulting to ID.");
+                    SetSortType(SortBy.ID); break;
             }
+        }
+        /// <summary>
+        /// Executes, reads the json, displays the first three players.
+        /// </summary>
+        /// <param name="count"></param>
+        public void DisplayTop3(int count = 3)
+        {
+            Execute();
+            var players = JsonSerializer.Deserialize<List<Player>>(File.ReadAllText("players.json"));
+            for (int i = 0; i < Math.Min(count, players.Count); i++) Console.WriteLine(players[i]);
         }
     }
     /// <summary>
     /// Add Player to database using the next available ID. 
     /// </summary>
-    class AddPlayer: DatabaseHandling
+    public class AddPlayer: DatabaseHandling
     {
-        public void AddPlayerToDatabase()
+        private string Username;
+        public AddPlayer(string sUsername) => this.Username = sUsername;
+        public static int GetNextID(List<Player> players)
         {
-            SortDatabase("ID");
-            int iNextID;
-            Console.WriteLine("Please enter the username you wish to use.");
-            string sUsername = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(sUsername))
+            return players.Any() ? players.Max(p => p.ID) + 1 : 1;
+        }
+        /// <summary>
+        /// Finds the next available ID then adds it to the new player object.
+        /// </summary>
+        /// <param name="players"></param>
+        /// <returns></returns>
+        protected override bool Modify(List<Player> players)
+        {
+            int iNextID = GetNextID(players);
+            if (string.IsNullOrWhiteSpace(Username))
             {
                 Console.WriteLine("Username cannot be empty.");
-                return;
+                return false;
             }
-
-            List<Player> CurrentPlayers = RetrieveFromDatabase();
-
-            Player lastPlayer = RetrieveFromDatabase().LastOrDefault();
-            if (lastPlayer != null)
+            if (players.Any(p => p.Username == Username)|| players.Any(p => p.ID == iNextID))
             {
-                iNextID = lastPlayer.ID + 1;
+                Console.WriteLine("Username or ID already exists.");
+                return false;
             }
-            else
-            {
-                iNextID = 1;
-            }
-
-            foreach (Player p in CurrentPlayers)
-            {
-                if (sUsername == p.Username || iNextID == p.ID)
-                {
-                    Console.WriteLine("Username or ID already exists.");
-                    return;
-                }
-            }
-
-            Player player = new Player(sUsername, iNextID);
-            CurrentPlayers.Add(player);
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            string json = JsonSerializer.Serialize(CurrentPlayers, options);
-            AddToDatabase(json);
-            Update($"{player.Username} added to database at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            players.Add(new Player(Username,iNextID));
+            return true;
+        }
+        /// <summary>
+        /// logging that a new player has been created.
+        /// </summary>
+        protected override void LogUpdate()
+        {
+            string msg = $"{Username} added to database at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            Console.WriteLine(msg);
+            NotifyObservers(msg);
+        }
         }
     }
-
-    class UserInterface
+/// <summary>
+/// Using the factory pattern for the creation of class objects.
+/// </summary>
+public static class DatabaseFactory
+{
+    public static AddPlayer CreateAddPlayer(string username)
     {
-        int Pointer;
-        int MenuStart;
-        int MenuEnd;
-        public void DisplayMainMenu()
-        {
-            Console.WriteLine("---------- Main Menu ----------");
-            Console.WriteLine("1: Add player to database.");
-            Console.WriteLine("2: Search for a player in the database");
-            Console.WriteLine("3: Update a players record.");
-            Console.WriteLine("4: Display high scores");
-            Console.WriteLine("5: Exit Program");
-            MenuStart = 1;
-            MenuEnd = 5;
-            MenuSelection("Main", MenuStart, MenuEnd);
-        }
-        public void MenuSelection(string MenuType, int iMenuStart, int iMenuEnd)
-        {
-            Console.WriteLine("Please select one of the options shown by entering the corresponding number.");
-            try
-            {
-                Pointer = int.Parse(Console.ReadLine());
-            }
-            catch (FormatException)
-            {
-                Console.WriteLine("You have entered an invalid character.");
-                MenuSelection(MenuType, iMenuStart, iMenuEnd);
-            }
-            catch (OverflowException)
-            {
-                Console.WriteLine("Your input number was too large.");
-                MenuSelection(MenuType, iMenuStart, iMenuEnd);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Input attemt unsucclessful: {e.Message}");
-                MenuSelection(MenuType, iMenuStart, iMenuEnd);
-            }
+        return new AddPlayer(username);
+    }
 
-            if(Pointer >= iMenuStart && Pointer <= iMenuEnd)
+    public static UpdateDatabase CreateUpdateDatabase(string username, int addKills, int addDeaths, int addHours)
+    {
+        return new UpdateDatabase(username, addKills, addDeaths, addHours);
+    }
+
+    public static DisplayRecords CreateDisplayRecords(SortBy sortBy = SortBy.ID)
+    {
+        var display = new DisplayRecords();
+        display.SetSortType(sortBy);
+        return display;
+    }
+
+    public static PlayerSearch CreatePlayerSearch(string username = null, int id = 0)
+    {
+        return new PlayerSearch(username, id);
+    }
+}
+/// <summary>
+/// The user interface for the program. Displays a main menu and the user selects 
+/// the option they wish to use. The following functions are then executed using the 
+/// template pattern we made earlier.
+/// </summary>
+class UserInterface
+{
+    int Pointer;
+    int MenuStart;
+    int MenuEnd;
+    /// <summary>
+    /// displays the main menu
+    /// </summary>
+    public void DisplayMainMenu()
+    {
+        Console.WriteLine("---------- Main Menu ----------");
+        Console.WriteLine("1: Add player to database.");
+        Console.WriteLine("2: Search for a player in the database");
+        Console.WriteLine("3: Update a players record.");
+        Console.WriteLine("4: Display high scores");
+        Console.WriteLine("5: Exit Program");
+        MenuStart = 1;
+        MenuEnd = 5;
+        MenuSelection("Main", MenuStart, MenuEnd);
+    }
+    /// <summary>
+    /// asks for the user input and checks the input using try-catch statements.
+    /// If successful, it carries out the actions taken.
+    /// It uses iteration to loop if unsuccessful.
+    /// </summary>
+    /// <param name="MenuType"></param>
+    /// <param name="iMenuStart"></param>
+    /// <param name="iMenuEnd"></param>
+    public void MenuSelection(string MenuType, int iMenuStart, int iMenuEnd)
+    {
+        Console.WriteLine("Please select one of the options shown by entering the corresponding number.");
+        try
+        {
+            Pointer = int.Parse(Console.ReadLine());
+        }
+        catch (FormatException)
+        {
+            Console.WriteLine("You have entered an invalid character.");
+            MenuSelection(MenuType, iMenuStart, iMenuEnd);
+        }
+        catch (OverflowException)
+        {
+            Console.WriteLine("Your input number was too large.");
+            MenuSelection(MenuType, iMenuStart, iMenuEnd);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Input attemt unsucclessful: {e.Message}");
+            MenuSelection(MenuType, iMenuStart, iMenuEnd);
+        }
+
+        if(Pointer >= iMenuStart && Pointer <= iMenuEnd)
+        {
+            if(MenuType == "Main")
             {
-                if(MenuType == "Main")
-                {
-                    MainMenuController();
-                }
-            }
-            else
-            {
-                Console.WriteLine("Input out of range.");
-                MenuSelection(MenuType,iMenuStart, iMenuEnd);
+                MainMenuController();
             }
         }
-        private int GetIntInput(string input, int min = int.MinValue, int max = int.MaxValue)
+        else
         {
-            int result;
-            while (!int.TryParse(input, out result) || result < min || result > max)
-            {
-                Console.WriteLine("Invalid input. Please enter a whole number.");
-                input = Console.ReadLine();
-            }
-            return result;
+            Console.WriteLine("Input out of range.");
+            MenuSelection(MenuType,iMenuStart, iMenuEnd);
         }
-        public void MainMenuController()
+    }
+    /// <summary>
+    /// Validates all user inputs that are expected to be integers
+    /// </summary>
+    /// <param name="input"></param>
+    /// <param name="min"></param>
+    /// <param name="max"></param>
+    /// <returns></returns>
+    private int GetIntInput(string input, int min = int.MinValue, int max = int.MaxValue)
+    {
+        int result;
+        while (!int.TryParse(input, out result) || result < min || result > max)
         {
-            if(Pointer == 1)
-            {
-                AddPlayer newPlayer = new AddPlayer();
-                newPlayer.AddPlayerToDatabase();
-                DisplayMainMenu();
-            }
-            if(Pointer == 2)
-            {
-                int iID = 0;
-                Console.WriteLine("Enter the Username of the player you wish to search. Press enter if you only wish to search by ID");
+            Console.WriteLine("Invalid input. Please enter a whole number.");
+            input = Console.ReadLine();
+        }
+        return result;
+    }
+    /// <summary>
+    /// Carries out the sequence of actions depending on the users option selection.
+    /// </summary>
+    public void MainMenuController()
+    {
+        FileLogger logger = new FileLogger("update_log.txt");
+
+        switch (Pointer)
+        {
+            case 1:
+                Console.WriteLine("Enter username:");
+                string username = Console.ReadLine();
+                var add = DatabaseFactory.CreateAddPlayer(username);
+                add.AddObserver(logger);
+                add.Execute();
+                break;
+            case 2:
+                Console.WriteLine("Input username or press enter to skip");
                 string sUsername = Console.ReadLine();
                 if (string.IsNullOrWhiteSpace(sUsername)) sUsername = null;
 
-                Console.WriteLine("Enter the ID of the player you wish to search. Press enter if you only with to search by Username");
+                Console.WriteLine("Input ID or press enter to skip");
                 string sID = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(sID)) sID = null;
-                else
-                {
-                    iID = GetIntInput(sID);
-                }
-                
-                if(sUsername == null && sID == null)
-                {
-                    Console.WriteLine("Both fields cannot be null. Please enter at least one value.");
-                    MainMenuController();
-                }
-                PlayerSearch search = (sUsername != null && sID != null) ? new PlayerSearch(sUsername, iID) : (sUsername != null) ? new PlayerSearch(sUsername) : new PlayerSearch(iID);
-                search.SearchForPlayer();
-                DisplayMainMenu();
-            }
-            if(Pointer == 3)
-            {
-                UpdateDatabase update = new UpdateDatabase();
-                int iAddKillCount = 0;
-                int iAddDeathCount = 0;
-                int iAddHoursPlayed = 0;
-                string sAKC;
-                string sADC;
-                string sAHP;
-                Console.WriteLine("Enter the amount you wish to add to the kill count.");
-                sAKC = Console.ReadLine();
-                iAddKillCount = GetIntInput(sAKC);
-                Console.WriteLine("Enter the amount you wish to add to the death count");
-                sADC = Console.ReadLine();
-                iAddDeathCount = GetIntInput(sADC);
-                Console.WriteLine("Enter the amount you wish to add to the hours played");
-                sAHP = Console.ReadLine();
-                iAddHoursPlayed = GetIntInput(sAHP);
+                int iID = string.IsNullOrWhiteSpace(sID) ? 0 : GetIntInput(sID);
 
-                update.CalculateUpdate(iAddKillCount, iAddDeathCount, iAddHoursPlayed);
-                DisplayMainMenu();
-            }
-            if(Pointer == 4)
-            {
-                DisplayRecords displayRecords = new DisplayRecords();
-                displayRecords.DisplayHighScores();
-                DisplayMainMenu();
-            }
-            if(Pointer == 5)
-            {
-                Console.WriteLine("Exiting program, Goodbye");
+                var search = DatabaseFactory.CreatePlayerSearch(sUsername, iID);
+                search.AddObserver(logger);
+                search.SearchForPlayer();
+                break;
+            case 3:
+                Console.WriteLine("Enter username to update:");
+                string uname = Console.ReadLine();
+                Console.WriteLine("Enter kills to add:");
+                int kills = GetIntInput(Console.ReadLine());
+                Console.WriteLine("Enter deaths to add:");
+                int deaths = GetIntInput(Console.ReadLine());
+                Console.WriteLine("Enter hours to add:");
+                int hours = GetIntInput(Console.ReadLine());
+
+                var update = DatabaseFactory.CreateUpdateDatabase(uname, kills, deaths, hours);
+                update.AddObserver(logger);
+                update.Execute();
+                break;
+            case 4:
+                var display = DatabaseFactory.CreateDisplayRecords();
+                display.AddObserver(logger);
+                display.ChooseSortType();
+                display.DisplayTop3();
+                break;
+            case 5:
                 Environment.Exit(0);
-            }
+                break;
+
         }
+        DisplayMainMenu();
     }
 }

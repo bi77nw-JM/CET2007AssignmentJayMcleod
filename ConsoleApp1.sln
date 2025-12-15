@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35707.178 d17.12
+VisualStudioVersion = 17.12.35707.178
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{1AE9B28A-2061-4022-A907-B676EEA6A607}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CET2007AssignmentUnitTests", "CET2007AssignmentUnitTests\CET2007AssignmentUnitTests.csproj", "{C018D16C-DDB0-4EAF-86D1-A8AEEB5B542F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,8 +17,15 @@ Global
 		{1AE9B28A-2061-4022-A907-B676EEA6A607}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1AE9B28A-2061-4022-A907-B676EEA6A607}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1AE9B28A-2061-4022-A907-B676EEA6A607}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C018D16C-DDB0-4EAF-86D1-A8AEEB5B542F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C018D16C-DDB0-4EAF-86D1-A8AEEB5B542F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C018D16C-DDB0-4EAF-86D1-A8AEEB5B542F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C018D16C-DDB0-4EAF-86D1-A8AEEB5B542F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {08D986E5-1686-48DF-80F9-040B12953433}
 	EndGlobalSection
 EndGlobal
