@@ -243,6 +243,7 @@ namespace ConsoleApp1
         private readonly int DeathCount;
         private readonly int MainScore;
         private readonly int HoursPlayed;
+        private bool updateSucceeded;
         /// <summary>
         /// sets adding values.
         /// </summary>
@@ -259,7 +260,9 @@ namespace ConsoleApp1
             return deaths > 0
                 ? (int)((double)kills / deaths * 100)
                 : kills * 100;
+
         }
+
         /// <summary>
         /// Edits the player found's scores.
         /// </summary>
@@ -271,6 +274,7 @@ namespace ConsoleApp1
             if (player == null)
             {
                 Console.WriteLine("Player not found.");
+                updateSucceeded = false;
                 return false;
             }
             player.KillCount += KillCount;
@@ -278,11 +282,21 @@ namespace ConsoleApp1
             player.HoursPlayed += HoursPlayed;
             player.MainScore = CalculateMainScore(player.KillCount, player.DeathCount);
 
+            updateSucceeded = true;
             return true;
         }
         protected override void LogUpdate()
         {
-            string msg = $"{Username} player record updated at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            string msg = "";
+            if (updateSucceeded)
+            {
+                msg = $"{Username} player record updated at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            }
+            else
+            {
+                msg = $"Unsuccessful attempt to update database at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            }
+
             Console.WriteLine(msg);
             NotifyObservers(msg);
         }
