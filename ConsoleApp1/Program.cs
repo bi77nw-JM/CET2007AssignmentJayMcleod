@@ -210,7 +210,7 @@ namespace ConsoleApp1
         public bool Matches(Player p)
         {
             return (Username != null && Username == p.Username && (ID == 0 || ID == p.ID))
-                || (ID != 0 && ID == p.ID && (Username == null || Username == p.Username));
+                || (ID != 0 && ID == p.ID && (Username == null || Username == p.Username)); 
 
         }
         /// <summary>
